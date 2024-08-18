@@ -2,7 +2,6 @@ import os
 import configparser
 import flet as ft
 from telethon import TelegramClient
-from test import telegram_api_id, telegram_api_hash, telegram_phone_number
 import ocrspace
 
 class Catchy:
@@ -31,7 +30,7 @@ class Catchy:
             api_hash=self.settings_manager.get_setting('telegram_api_hash'),
         )
         
-        await self.client.start(telegram_phone_number)
+        await self.client.start(self.settings_manager.get_settings('telegram_phone_number'))
 
         async with self.client.conversation('@imageToText_bot') as c:
             await c.send_file(image_path)
@@ -60,13 +59,13 @@ class Catchy:
 
         # UI
         self.icon = ft.Image(
-            src="ico1.svg",
+            src="assets/ico1.svg",
             width=300,
             height=300,
         )
 
         self.second_icon = ft.Image(
-            src="ico2.svg",
+            src="assets/ico2.svg",
             width=300,
             height=300,
         )
@@ -198,6 +197,13 @@ class Catchy:
             width=500,
         )
 
+        self.tg_number_text = ft.TextField(
+            value=self.settings_manager.get_setting('telegram_phone_number'),
+            label="Your Telegram Phone Number",
+            color=ft.colors.BLACK,
+            width=500,
+        )
+
         self.telegram_ocr_switcher = ft.Dropdown(
             options=[
                 ft.dropdown.Option("OCR"),
@@ -219,6 +225,7 @@ class Catchy:
             on_click=lambda e: (
                 self.settings_manager.set_setting('telegram_api_id', self.tg_id_text.value),
                 self.settings_manager.set_setting('telegram_api_hash', self.tg_hash_text.value),
+                self.settings_manager.set_setting('telegram_phone_number', self.tg_number_text.value),
                 self.settings_manager.set_setting('ocr_telegram_switcher', self.telegram_ocr_switcher.value),
                 self.settings_manager.set_setting('ctrlv_status_switcher', str(self.ctrlv_status_switcher.value)),
                 self.settings_manager.save_settings()
@@ -251,6 +258,7 @@ class Catchy:
                 [
                     self.tg_id_text,
                     self.tg_hash_text,
+                    self.tg_number_text,
                     self.telegram_ocr_switcher,
                     ctrlv_status_switcher_container,
                     self.submit_button,
@@ -330,6 +338,7 @@ class SettingsManager:
         self.config['Catchy'] = {
             'telegram_api_hash': '',
             'telegram_api_id': '',
+            'telegram_phone_number': '',
             'ctrlv_status_switcher': True,
             'ocr_telegram_switcher': 'OCR',
         }

@@ -1,6 +1,7 @@
 /venv/
-test.py
 settings.ini
 imgtotext.session
 imgtotext.session-journal
 /__pycache__/
+/flutter/
+/build/
