@@ -1,10 +1,12 @@
 import flet as ft
 from telethon import TelegramClient
 from test import api_id, api_hash, phone_number
+import ocrspace
 
 class Catchy:
     def __init__(self):
         self.client = TelegramClient('imgtotext', api_id, api_hash)
+        self.api = ocrspace.API()
         self.page = None
         self.upload_btn = None
         self.loading_indicator = None
@@ -15,7 +17,7 @@ class Catchy:
         self.tabs = {}
         self.current_tab = "home"
 
-    async def text_from_image(self, image_path):
+    async def text_from_image_telegram(self, image_path):
         '''
         Using the Telegram API to send 
         image to the bot and receive text response.
@@ -26,13 +28,21 @@ class Catchy:
             await c.send_file(image_path)
             response = await c.get_response()
             return response.text
-
+    
+    def text_from_image_ocr(self, image_path):
+        '''
+        Using OCR Space API to get text from image.
+        '''
+        return self.api.ocr_file(image_path)
     def start(self, page: ft.Page):
         self.page = page
         self.setup_ui()
         self.page.update()
 
     def setup_ui(self):
+        '''
+        Full UI page setup
+        '''
         self.page.window.width = 800
         self.page.window.height = 700
         self.page.bgcolor = ft.colors.WHITE
@@ -63,7 +73,7 @@ class Catchy:
 
         self.upload_btn = ft.ElevatedButton(
             text="Upload Image",
-            on_click=self.on_upload,
+            on_click=self.on_file_upload,
             color=ft.colors.WHITE,
         )
 
@@ -129,7 +139,7 @@ class Catchy:
 
         self.upload_btn = ft.ElevatedButton(
             text="Upload Image",
-            on_click=self.on_upload,
+            on_click=self.on_file_upload,
             color=ft.colors.WHITE,
         )
 
@@ -166,15 +176,26 @@ class Catchy:
 
     def settings_tab(self):
 
-
         self.tg_id_text = ft.TextField(
             label="Your Telegram API ID",
             color=ft.colors.BLACK,
+            width=500,
         )
         self.tg_hash_text = ft.TextField(
             label="Your Telegram API Hash",
             color=ft.colors.BLACK,
+            width=500,
         )
+
+        telegram_ocr_switcher = ft.Dropdown(
+        # on_change=switcher,
+        options=[
+            ft.dropdown.Option("OCR"),
+            ft.dropdown.Option("Telegram"),
+        ],
+        width=300,
+        
+    )
 
         self.upload_switcher = ft.Switch(label="", value=True)
         self.submit_button = ft.ElevatedButton(text="Submit")
@@ -192,18 +213,20 @@ class Catchy:
                     self.upload_switcher
                 ],
                 alignment=ft.MainAxisAlignment.START,
-                spacing=8  # Add spacing between text and switch
+                spacing=8
             ),
             padding=8
         )
         # on_click=submit_button_clicked
         
         # c.value - on_change=checkbox_changed
+        # сделать разные контейнеры под разные настройки. телега левый верх свой контейнер с  alignmentами
         return ft.Container(
             content=ft.Column(
                 [
                     self.tg_id_text,
                     self.tg_hash_text,
+                    telegram_ocr_switcher,
                     upload_switch_container,
                     self.submit_button,
                 ],
@@ -233,7 +256,7 @@ class Catchy:
         self.tabs[tab_name].visible = True
         self.page.update()
 
-    def on_upload(self, e):
+    def on_file_upload(self, e):
         self.upload_btn.visible = False
         self.loading_indicator.visible = True
         self.page.update()
@@ -246,7 +269,7 @@ class Catchy:
     async def on_file_picked(self, e: ft.FilePickerResultEvent):
         if e.files:
             image_path = e.files[0].path
-            extracted_text = await self.text_from_image(image_path)
+            extracted_text = self.text_from_image2(image_path)
             self.result_text.value = extracted_text
 
             self.result_text.visible = True

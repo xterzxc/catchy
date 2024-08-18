@@ -2,4 +2,5 @@
 test.py
 cfg.txt
 imgtotext.session
+imgtotext.session-journal
 /__pycache__/
