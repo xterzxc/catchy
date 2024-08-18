@@ -1,4 +1,5 @@
 /venv/
 test.py
+cfg.txt
 imgtotext.session
 /__pycache__/

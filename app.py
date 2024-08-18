@@ -1,5 +1,5 @@
 import flet as ft
-from telethon import TelegramClient, events
+from telethon import TelegramClient
 from test import api_id, api_hash, phone_number
 
 class Catchy:
@@ -12,6 +12,8 @@ class Catchy:
         self.icon = None
         self.icon_resized = None
         self.title_text = None
+        self.tabs = {}
+        self.current_tab = "home"
 
     async def text_from_image(self, image_path):
         '''
@@ -81,37 +83,155 @@ class Catchy:
             visible=False,
         )
 
+
+
         # appbar
         self.page.appbar = ft.AppBar(
-            leading=ft.Container(
-                content=self.second_icon,
-                padding=ft.Padding(left=16, right=16, top=16, bottom=16),
+            leading=ft.IconButton(
+                icon=ft.icons.HOME, 
+                on_click=lambda e: self.switch_tab("home"),
             ),
-            title=ft.Text("maded by @xterzxc"),
+            title=ft.Text("version 0.0.0"),
             center_title=True,
             bgcolor=ft.colors.SURFACE_VARIANT,
             actions=[
-                ft.IconButton(ft.icons.WB_SUNNY_OUTLINED),
-                ft.IconButton(ft.icons.BUILD_SHARP),
-                ft.IconButton(ft.icons.SETTINGS),
+                ft.IconButton(ft.icons.BUILD_SHARP, on_click=lambda e: self.page.launch_url('https://github.com/xterzxc/catchy')),
+                ft.IconButton(ft.icons.SETTINGS, on_click=lambda e: self.switch_tab("settings")),
+                ft.IconButton(ft.icons.HISTORY, on_click=lambda e: self.switch_tab("history")),
+                ft.IconButton(ft.icons.INFO, on_click=lambda e: self.switch_tab("about")),
             ],
         )
 
+        self.tabs = {
+            "home": self.home_tab(),
+            "history": self.history_tab(),
+            "settings": self.settings_tab(),
+            "about": self.about_tab(),
+        }
 
         self.page.add(
-            ft.Column(
+            *[
+                self.tabs[tab_name]
+                for tab_name in self.tabs
+            ]
+        )
+
+        self.switch_tab(self.current_tab)
+
+
+
+    def home_tab(self):
+        self.icon = ft.Image(
+            src="ico1.svg",
+            width=300,
+            height=300,
+        )
+
+        self.upload_btn = ft.ElevatedButton(
+            text="Upload Image",
+            on_click=self.on_upload,
+            color=ft.colors.WHITE,
+        )
+
+        self.loading_indicator = ft.ProgressRing(visible=False)
+
+        self.result_text = ft.TextField(
+            value="",
+            multiline=True,
+            label="Extracted Text",
+            width=500,
+            height=200,
+            read_only=True,
+            text_align=ft.TextAlign.LEFT,
+            border_color=ft.colors.BLUE,
+            focused_border_color=ft.colors.BLUE_ACCENT,
+            color=ft.colors.BLACK,
+            visible=False,
+        )
+
+        return ft.Container(
+            content=ft.Column(
                 [
                     self.icon,
-                    self.title_text,
                     self.upload_btn,
                     self.loading_indicator,
                     self.result_text,
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                expand=True
-            )
+            ),
+            alignment=ft.alignment.center,
+            visible=False,
         )
+
+    def settings_tab(self):
+
+
+        self.tg_id_text = ft.TextField(
+            label="Your Telegram API ID",
+            color=ft.colors.BLACK,
+        )
+        self.tg_hash_text = ft.TextField(
+            label="Your Telegram API Hash",
+            color=ft.colors.BLACK,
+        )
+
+        self.upload_switcher = ft.Switch(label="", value=True)
+        self.submit_button = ft.ElevatedButton(text="Submit")
+
+
+        upload_switch_container = ft.Container(
+            content=ft.Row(
+                controls=[
+                    ft.Text(
+                        value="Ctrl + V to upload image",
+                        color=ft.colors.BLACK,
+                        size=16,
+                        weight="bold"
+                    ),
+                    self.upload_switcher
+                ],
+                alignment=ft.MainAxisAlignment.START,
+                spacing=8  # Add spacing between text and switch
+            ),
+            padding=8
+        )
+        # on_click=submit_button_clicked
+        
+        # c.value - on_change=checkbox_changed
+        return ft.Container(
+            content=ft.Column(
+                [
+                    self.tg_id_text,
+                    self.tg_hash_text,
+                    upload_switch_container,
+                    self.submit_button,
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            alignment=ft.alignment.center,
+            visible=False,
+        )
+    
+    def history_tab(self):
+        return ft.Container(
+            content=ft.Text("history tab..."),
+            alignment=ft.alignment.center,
+        )
+    
+    def about_tab(self):
+        return ft.Container(
+            content=ft.Text("about tab..."),
+            alignment=ft.alignment.center,
+        )
+
+    def switch_tab(self, tab_name):
+        for tab in self.tabs.values():
+            tab.visible = False
+        
+        self.tabs[tab_name].visible = True
+        self.page.update()
 
     def on_upload(self, e):
         self.upload_btn.visible = False
