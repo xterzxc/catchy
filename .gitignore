@@ -1,6 +1,6 @@
 /venv/
 test.py
-cfg.txt
+settings.ini
 imgtotext.session
 imgtotext.session-journal
 /__pycache__/

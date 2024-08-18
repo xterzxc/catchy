@@ -1,11 +1,13 @@
+import os
+import configparser
 import flet as ft
 from telethon import TelegramClient
-from test import api_id, api_hash, phone_number
+from test import telegram_api_id, telegram_api_hash, telegram_phone_number
 import ocrspace
 
 class Catchy:
     def __init__(self):
-        self.client = TelegramClient('imgtotext', api_id, api_hash)
+        self.settings_manager = SettingsManager()
         self.api = ocrspace.API()
         self.page = None
         self.upload_btn = None
@@ -22,7 +24,14 @@ class Catchy:
         Using the Telegram API to send 
         image to the bot and receive text response.
         '''
-        await self.client.start(phone_number)
+
+        self.client = TelegramClient(
+            session='imgtotext', 
+            api_id=self.settings_manager.get_setting('telegram_api_id'),
+            api_hash=self.settings_manager.get_setting('telegram_api_hash'),
+        )
+        
+        await self.client.start(telegram_phone_number)
 
         async with self.client.conversation('@imageToText_bot') as c:
             await c.send_file(image_path)
@@ -33,7 +42,7 @@ class Catchy:
         '''
         Using OCR Space API to get text from image.
         '''
-        return self.api.ocr_file(image_path)
+        return self.api.ocr_file()
     def start(self, page: ft.Page):
         self.page = page
         self.setup_ui()
@@ -101,7 +110,7 @@ class Catchy:
                 icon=ft.icons.HOME, 
                 on_click=lambda e: self.switch_tab("home"),
             ),
-            title=ft.Text("version 0.0.0"),
+            title=ft.Text("Catchy 0.0.1"),
             center_title=True,
             bgcolor=ft.colors.SURFACE_VARIANT,
             actions=[
@@ -177,31 +186,47 @@ class Catchy:
     def settings_tab(self):
 
         self.tg_id_text = ft.TextField(
+            value=self.settings_manager.get_setting('telegram_api_id'),
             label="Your Telegram API ID",
             color=ft.colors.BLACK,
             width=500,
         )
         self.tg_hash_text = ft.TextField(
+            value=self.settings_manager.get_setting('telegram_api_hash'),
             label="Your Telegram API Hash",
             color=ft.colors.BLACK,
             width=500,
         )
 
-        telegram_ocr_switcher = ft.Dropdown(
-        # on_change=switcher,
-        options=[
-            ft.dropdown.Option("OCR"),
-            ft.dropdown.Option("Telegram"),
-        ],
-        width=300,
-        
-    )
+        self.telegram_ocr_switcher = ft.Dropdown(
+            options=[
+                ft.dropdown.Option("OCR"),
+                ft.dropdown.Option("Telegram"),
+            ],
+            value=self.settings_manager.get_setting('ocr_telegram_switcher'),
+            width=300,
+            on_change=lambda e: self.settings_manager.set_setting('ocr_telegram_switcher', e.control.value)
+        )
 
-        self.upload_switcher = ft.Switch(label="", value=True)
-        self.submit_button = ft.ElevatedButton(text="Submit")
+        self.ctrlv_status_switcher = ft.Switch(
+            label="", 
+            value=True, 
+            on_change=lambda e: self.settings_manager.set_setting('ctrlv_status_switcher', str(e.control.value))
+        )
+
+        self.submit_button = ft.ElevatedButton(
+            text="Save",
+            on_click=lambda e: (
+                self.settings_manager.set_setting('telegram_api_id', self.tg_id_text.value),
+                self.settings_manager.set_setting('telegram_api_hash', self.tg_hash_text.value),
+                self.settings_manager.set_setting('ocr_telegram_switcher', self.telegram_ocr_switcher.value),
+                self.settings_manager.set_setting('ctrlv_status_switcher', str(self.ctrlv_status_switcher.value)),
+                self.settings_manager.save_settings()
+            )
+        )
 
 
-        upload_switch_container = ft.Container(
+        ctrlv_status_switcher_container = ft.Container(
             content=ft.Row(
                 controls=[
                     ft.Text(
@@ -210,7 +235,7 @@ class Catchy:
                         size=16,
                         weight="bold"
                     ),
-                    self.upload_switcher
+                    self.ctrlv_status_switcher
                 ],
                 alignment=ft.MainAxisAlignment.START,
                 spacing=8
@@ -226,8 +251,8 @@ class Catchy:
                 [
                     self.tg_id_text,
                     self.tg_hash_text,
-                    telegram_ocr_switcher,
-                    upload_switch_container,
+                    self.telegram_ocr_switcher,
+                    ctrlv_status_switcher_container,
                     self.submit_button,
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -269,7 +294,10 @@ class Catchy:
     async def on_file_picked(self, e: ft.FilePickerResultEvent):
         if e.files:
             image_path = e.files[0].path
-            extracted_text = self.text_from_image2(image_path)
+            if self.settings_manager.get_setting('ocr_telegram_switcher') == 'OCR':
+                extracted_text = self.text_from_image_ocr(image_path)
+            elif self.settings_manager.get_setting('ocr_telegram_switcher') == 'Telegram':
+                extracted_text = await self.text_from_image_telegram(image_path)
             self.result_text.value = extracted_text
 
             self.result_text.visible = True
@@ -284,6 +312,38 @@ class Catchy:
             self.loading_indicator.visible = False
 
             self.page.update()
+
+
+class SettingsManager:
+    def __init__(self, config_file='settings.ini'):
+        self.config_file = config_file
+        self.config = configparser.ConfigParser()
+        
+        if os.path.exists(self.config_file):
+            self.config.read(self.config_file)
+        else:
+            self.set_default_settings()
+            self.save_settings()
+
+
+    def set_default_settings(self):
+        self.config['Catchy'] = {
+            'telegram_api_hash': '',
+            'telegram_api_id': '',
+            'ctrlv_status_switcher': True,
+            'ocr_telegram_switcher': 'OCR',
+        }
+
+    def save_settings(self):
+        with open(self.config_file, 'w') as configfile:
+            self.config.write(configfile)
+
+    def get_setting(self, option):
+        return self.config.get('Catchy', option)
+
+    def set_setting(self, option, value):
+        self.config['Catchy'][option] = value
+        self.save_settings()
 
 
 if __name__ == "__main__":
