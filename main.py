@@ -1,4 +1,5 @@
 import os
+import json
 import configparser
 import flet as ft
 from telethon import TelegramClient
@@ -8,7 +9,7 @@ class Catchy:
     def __init__(self):
         self.settings_manager = SettingsManager()
         self.api = ocrspace.API()
-        self.page = None
+        self.page = None 
         self.upload_btn = None
         self.loading_indicator = None
         self.result_text = None
@@ -17,6 +18,8 @@ class Catchy:
         self.title_text = None
         self.tabs = {}
         self.current_tab = "home"
+        self.history_file = 'history.json'
+        self.history = self.load_history()
 
     async def text_from_image_telegram(self, image_path):
         '''
@@ -30,7 +33,7 @@ class Catchy:
             api_hash=self.settings_manager.get_setting('telegram_api_hash'),
         )
         
-        await self.client.start(self.settings_manager.get_settings('telegram_phone_number'))
+        await self.client.start(self.settings_manager.get_setting('telegram_phone_number'))
 
         async with self.client.conversation('@imageToText_bot') as c:
             await c.send_file(image_path)
@@ -41,11 +44,13 @@ class Catchy:
         '''
         Using OCR Space API to get text from image.
         '''
-        return self.api.ocr_file()
+        return self.api.ocr_file(image_path)
+    
     def start(self, page: ft.Page):
         self.page = page
         self.setup_ui()
         self.page.update()
+        self.update_history_tab()
 
     def setup_ui(self):
         '''
@@ -120,6 +125,8 @@ class Catchy:
             ],
         )
 
+
+        # switching tabs
         self.tabs = {
             "home": self.home_tab(),
             "history": self.history_tab(),
@@ -271,11 +278,75 @@ class Catchy:
         )
     
     def history_tab(self):
-        return ft.Container(
-            content=ft.Text("history tab..."),
-            alignment=ft.alignment.center,
+        self.clear_button = ft.ElevatedButton(
+            text="Clear History",
+            on_click=self.clear_history,
+            color=ft.colors.RED,
+            width=150
         )
-    
+        
+        self.history_list_view = ft.ListView(
+            controls=self.create_history_items(),
+            height=500,
+            width=800,
+            spacing=10,
+            padding=ft.Padding(left=10, right=10, top=10, bottom=10),
+        )
+        
+        history_content = ft.Column(
+            controls=[
+                self.clear_button,
+                self.history_list_view
+            ],
+            alignment=ft.MainAxisAlignment.START,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        
+        return ft.Container(
+            content=history_content,
+            alignment=ft.alignment.center_left,
+            padding=ft.Padding(top=10, right=10, bottom=10, left=10),
+            visible=False,
+        )
+
+    def create_history_items(self):
+        history_items = []
+        
+        for i, record in enumerate(self.history):
+            text_field = ft.TextField(
+                value=f"{i + 1}: {record['extracted_text']}",
+                multiline=True,
+                read_only=True,
+                color=ft.colors.BLACK,
+                border_color=ft.colors.TRANSPARENT,
+                width=750,
+                height=100,
+            )
+            history_items.append(text_field)
+        
+        return history_items
+
+    def clear_history(self, e):
+        self.history = []
+        self.save_history()
+        self.update_history_tab()
+
+    def update_history_tab(self):
+        if self.history_list_view:
+            self.history_list_view.controls = self.create_history_items()
+            self.page.update()
+
+
+    def load_history(self):
+        if os.path.exists(self.history_file):
+            with open(self.history_file, 'r') as f:
+                return json.load(f)
+        return []
+
+    def save_history(self):
+        with open(self.history_file, 'w') as f:
+            json.dump(self.history, f)
+
     def about_tab(self):
         return ft.Container(
             content=ft.Text("about tab..."),
@@ -308,6 +379,14 @@ class Catchy:
                 extracted_text = await self.text_from_image_telegram(image_path)
             self.result_text.value = extracted_text
 
+            self.history.append({
+                'extracted_text': extracted_text
+            })
+
+            if len(self.history) > 10:
+                self.history.pop(0)
+            self.save_history()
+
             self.result_text.visible = True
             self.loading_indicator.visible = False
 
@@ -315,6 +394,8 @@ class Catchy:
             self.upload_btn.visible = True
 
             self.page.update()
+            self.update_history_tab()
+
         else:
             self.upload_btn.visible = True
             self.loading_indicator.visible = False

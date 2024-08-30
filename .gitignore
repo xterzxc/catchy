@@ -3,5 +3,6 @@ settings.ini
 imgtotext.session
 imgtotext.session-journal
 /__pycache__/
+history.json
 /flutter/
 /build/
